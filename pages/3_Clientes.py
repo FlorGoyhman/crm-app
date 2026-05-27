@@ -1,44 +1,46 @@
 import pandas as pd
 import streamlit as st
+import logging
 import config
 
-st.set_page_config(page_title="Productos - CRM", page_icon="👤")
-st.title("👤 Productos / Clientes")
+# Configuración del Logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def load_data_direct():
-    get_gsheet_data = getattr(config, 'get_gsheet_data', None)
-    clean_dataframe_columns = getattr(config, 'clean_dataframe_columns', None)
-    
-    if not get_gsheet_data:
-        st.error("❌ No se encontró la función 'get_gsheet_data' en config.py.")
+# Traemos la función de consulta SQL pura de config
+query = getattr(config, 'query', None)
+clean_dataframe_columns = getattr(config, 'clean_dataframe_columns', None)
+
+st.set_page_config(page_title="Clientes - CRM", page_icon="👤")
+st.title("👤 Clientes y Partners (SQL Server)")
+
+def load_sql_data():
+    if not query:
+        st.error("❌ No se encontró la función 'query' en config.py para conectar a SQL Server.")
         return pd.DataFrame()
-        
     try:
-        # Llamamos directo a la pestaña real
-        df = get_gsheet_data("Python", "Products")
-        
-        if df is None or df.empty:
-            return pd.DataFrame()
-            
-        if clean_dataframe_columns:
-            df = clean_dataframe_columns(df)
-            
-        for col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
-            
+        # Consulta directa a la tabla de SQL Server
+        df = query("SELECT * FROM Partners")
         return df
     except Exception as e:
-        st.error(f"❌ Error al procesar Google Sheets: {e}")
+        st.error(f"❌ Error al consultar la tabla Partners en SQL Server: {e}")
         return pd.DataFrame()
 
-# Ejecución
-df_products = load_data_direct()
+# Ejecución de la carga
+df_partners = load_sql_data()
 
-if df_products.empty:
-    st.warning("⚠️ No se pudieron recuperar datos de la pestaña 'Products'.")
+if df_partners.empty:
+    st.warning("⚠️ No se pudieron recuperar datos desde SQL Server o la tabla 'Partners' está vacía.")
 else:
-    st.subheader(f"📋 Lista de registros ({len(df_products)})")
-    st.dataframe(df_products, use_container_width=True)
+    if clean_dataframe_columns:
+        df_partners = clean_dataframe_columns(df_partners)
+        
+    # Limpieza básica de strings
+    for col in df_partners.columns:
+        df_partners[col] = df_partners[col].astype(str).str.strip()
+
+    st.subheader(f"📋 Lista de Clientes ({len(df_partners)} registros)")
+    st.dataframe(df_partners, use_container_width=True)
     
     st.markdown("---")
-    st.metric("Total Productos", len(df_products))
+    st.metric("Total Clientes", len(df_partners))
