@@ -1,12 +1,14 @@
 import os
 import logging
-import pandas as pd  # <-- ¡ESTO EVITA EL ERROR 'pd is not defined'!
+import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 
-# Configuración de Logger
+# Configuración básica del Logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# --- 1. PRIMERO DECLARAMOS EL CLIENTE ---
 def get_gsheet_client():
     """Inicializa y devuelve el cliente de Google Sheets usando los Secrets de Streamlit"""
     try:
@@ -23,13 +25,14 @@ def get_gsheet_client():
         client = gspread.authorize(creds)
         return client
     except Exception as e:
-        logger.error(f"Error al autenticar en Google Sheets: {e}")
+        logger.error(f"Error crítico al autenticar en Google Sheets: {e}")
         raise e
 
+# --- 2. SEGUNDO DECLARAMOS LA FUNCIÓN QUE USA AL CLIENTE ---
 def get_gsheet_data(spreadsheet_name, sheet_name):
     """Obtiene datos de una pestaña de Google Sheets convirtiendo celdas puras a DataFrame"""
     try:
-        # Llamamos a la función interna de forma segura
+        # Ahora sí encuentra la función porque está declarada arriba
         client = get_gsheet_client()
         sheet = client.open(spreadsheet_name).worksheet(sheet_name)
         
@@ -40,11 +43,11 @@ def get_gsheet_data(spreadsheet_name, sheet_name):
             logger.warning(f"La pestaña '{sheet_name}' está vacía.")
             return pd.DataFrame()
             
-        # La primera fila contiene los encabezados reales
+        # La primera fila contiene los encabezados reales (product_id, name, etc.)
         headers = [str(h).strip() for h in all_values[0]]
         rows = all_values[1:]
         
-        # Creamos el DataFrame usando el 'pd' que ya importamos arriba
+        # Creamos el DataFrame de forma segura
         df = pd.DataFrame(rows, columns=headers)
         return df
         
@@ -52,6 +55,7 @@ def get_gsheet_data(spreadsheet_name, sheet_name):
         logger.error(f"Error en get_gsheet_data al leer {sheet_name}: {e}")
         return pd.DataFrame()
 
+# --- 3. FUNCIONES AUXILIARES DE LIMPIEZA ---
 def clean_dataframe_columns(df):
     """Limpia los espacios y pasa a minúsculas los nombres de las columnas"""
     if df is not None and not df.empty:
