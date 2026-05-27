@@ -1,61 +1,45 @@
 import os
 import logging
 import pandas as pd
-import gspread
-from google.oauth2.service_account import Credentials
+import pyodbc  # Importante para conectar a SQL Server
 
-# Configuración básica del Logger
+# Configuración básica del Logger para que no tire error de inicialización
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- 1. PRIMERO DECLARAMOS EL CLIENTE ---
-def get_gsheet_client():
-    """Inicializa y devuelve el cliente de Google Sheets usando los Secrets de Streamlit"""
+def get_sql_connection():
+    """Establece la conexión física con la base de datos SQL Server"""
     try:
-        import streamlit as st
-        # Cargamos las credenciales desde los secrets de Streamlit Cloud
-        creds_dict = st.secrets["gcs_connections"]["gspreadsheet"]
-        
-        scopes = [
-            "https://spreadsheets.google.com/feeds",
-            "https://www.googleapis.com/auth/drive"
-        ]
-        
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        client = gspread.authorize(creds)
-        return client
+        # Reemplazá estos valores con las credenciales reales de tu SQL Server
+        conn = pyodbc.connect(
+            'DRIVER={ODBC Driver 17 for SQL Server};'
+            'SERVER=TU_SERVIDOR_AQUÍ;'       # <-- Poné tu Servidor/IP acá
+            'DATABASE=TU_BASE_DE_DATOS;'     # <-- Poné el nombre de tu BD
+            'UID=TU_USUARIO;'                # <-- Tu usuario de SQL
+            'PWD=TU_CONTRASEÑA;'             # <-- Tu contraseña de SQL
+            'Timeout=30;'
+        )
+        return conn
     except Exception as e:
-        logger.error(f"Error crítico al autenticar en Google Sheets: {e}")
+        logger.error(f"Error crítico al conectar a SQL Server: {e}")
         raise e
 
-# --- 2. SEGUNDO DECLARAMOS LA FUNCIÓN QUE USA AL CLIENTE ---
-def get_gsheet_data(spreadsheet_name, sheet_name):
-    """Obtiene datos de una pestaña de Google Sheets convirtiendo celdas puras a DataFrame"""
+def query(sql_expression):
+    """Ejecuta una consulta SQL y devuelve un DataFrame de Pandas limpio"""
+    conn = None
     try:
-        # Ahora sí encuentra la función porque está declarada arriba
-        client = get_gsheet_client()
-        sheet = client.open(spreadsheet_name).worksheet(sheet_name)
-        
-        # Traemos todas las celdas de la hoja como una lista de listas
-        all_values = sheet.get_all_values()
-        
-        if not all_values or len(all_values) == 0:
-            logger.warning(f"La pestaña '{sheet_name}' está vacía.")
-            return pd.DataFrame()
-            
-        # La primera fila contiene los encabezados reales (product_id, name, etc.)
-        headers = [str(h).strip() for h in all_values[0]]
-        rows = all_values[1:]
-        
-        # Creamos el DataFrame de forma segura
-        df = pd.DataFrame(rows, columns=headers)
+        conn = get_sql_connection()
+        # Leemos la consulta directamente pasándole la conexión activa
+        df = pd.read_sql(sql_expression, conn)
         return df
-        
     except Exception as e:
-        logger.error(f"Error en get_gsheet_data al leer {sheet_name}: {e}")
+        logger.error(f"Error al ejecutar la consulta SQL [{sql_expression}]: {e}")
         return pd.DataFrame()
+    finally:
+        # Nos aseguramos de cerrar siempre la conexión para no saturar el servidor
+        if conn:
+            conn.close()
 
-# --- 3. FUNCIONES AUXILIARES DE LIMPIEZA ---
 def clean_dataframe_columns(df):
     """Limpia los espacios y pasa a minúsculas los nombres de las columnas"""
     if df is not None and not df.empty:
