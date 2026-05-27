@@ -1,11 +1,8 @@
 import pandas as pd
+import streamlit as st
 
 def query(sql_expression):
-    """
-    Simula la conexión a SQL Server devolviendo DataFrames hardcodeados
-    según la consulta que le pida la página para evitar errores de red.
-    """
-    # Pasamos la consulta a minúsculas para comparar fácil
+    """Simula la conexión a SQL Server devolviendo DataFrames hardcodeados"""
     sql_expression_clean = sql_expression.strip().lower()
     
     # 👤 SI LA PÁGINA PIDE LOS CLIENTES / PARTNERS:
@@ -31,7 +28,6 @@ def query(sql_expression):
         }
         return pd.DataFrame(datos_orders)
         
-    # Por si se pide otra cosa, devolvemos una estructura vacía segura
     return pd.DataFrame()
 
 def clean_dataframe_columns(df):
@@ -39,3 +35,14 @@ def clean_dataframe_columns(df):
     if df is not None and not df.empty:
         df.columns = [str(c).strip().lower() for c in df.columns]
     return df
+
+# --- 🛠️ NUEVAS FUNCIONES SIMULADAS PARA ACCIONES ---
+def get_conn():
+    """Simula devolver un objeto de conexión para que no falle el import"""
+    return "Conexión Simulada Exitosa"
+
+def insert_into_table(query_string, data_tuple):
+    """Simula la inserción de una nueva acción o registro en la base de datos"""
+    # Mostramos un mensaje de éxito temporal en la consola de Streamlit
+    print(f"Simulación: Insertando datos {data_tuple} con la consulta [{query_string}]")
+    return True
