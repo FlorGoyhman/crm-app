@@ -1,8 +1,0 @@
-streamlit
-pandas
-pyodbc
-gspread
-oauth2client
-python-dotenv
-plotly
-SQLAlchemy
