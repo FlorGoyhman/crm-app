@@ -1,69 +1,80 @@
 import pandas as pd
 import streamlit as st
 import logging
+import config  # Importamos tu config.py
 
-# CONFIGURACIÓN DEL LOGGER (Faltaba esto y por eso caía en el cartel amarillo)
+# 1. Configuración de seguridad para el Logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-import config
-
+# 2. Traemos las funciones de config de forma segura
 get_gsheet_data = getattr(config, 'get_gsheet_data', None)
 clean_dataframe_columns = getattr(config, 'clean_dataframe_columns', None)
 query = getattr(config, 'query', None)
 
+# 3. Intentamos traer los filtros de la carpeta utils
 try:
     from utils.filters import (
         create_partner_filter,
         apply_partner_filter
     )
-except ImportError as e:
-    st.error(f"❌ Error de importación de filtros: {e}")
+except ImportError:
+    st.error("❌ No se encontró el archivo 'utils/filters.py'.")
 
+st.set_page_config(page_title="Clientes - CRM", page_icon="👤")
 st.title("👤 Clientes")
 
+# --- FUNCIÓN DE CARGA DE DATOS ---
 @st.cache_data(ttl=300)
-def load_partners_data():
+def load_data():
     try:
-        if get_gsheet_data is not None:
-            df = get_gsheet_data("Python", "Products")
-        elif query is not None:
-            df = query("SELECT * FROM Partners")
-        else:
-            st.error("❌ No se encontró ninguna función de consulta en config.py")
-            return pd.DataFrame()
+        # BUSCA EN GOOGLE SHEETS
+        # Cambiá "Partners" por el nombre exacto de la pestaña donde están tus clientes
+        if get_gsheet_data:
+            df = get_gsheet_data("Python", "Partners")
+            if df is not None and not df.empty:
+                return df
+        
+        # SI FALLA GSHEETS, BUSCA EN SQL LOCAL (PLAN B)
+        if query:
+            return query("SELECT * FROM Partners")
             
-        if df is None or df.empty:
-            return pd.DataFrame()
-        return df
+        return pd.DataFrame()
     except Exception as e:
-        logger.error(f"Error cargando Partners: {e}")
+        # Ahora el logger está definido, así que no dará error
+        logger.error(f"Error en carga de clientes: {e}")
         return pd.DataFrame()
 
+# --- EJECUCIÓN PRINCIPAL ---
 try:
-    df_partners = load_partners_data()
-    
+    df_partners = load_data()
+
     if df_partners.empty:
-        st.warning("⚠️ No se pudieron cargar los datos. Esto puede pasar si el archivo 'Python' en Google Sheets no tiene una pestaña llamada 'Partners' o si falta compartirlo con el mail de la cuenta de servicio.")
+        st.warning("⚠️ No se encontraron datos en la pestaña 'Partners'.")
+        st.info("💡 REVISÁ ESTO: En tu Google Sheets 'Python', la pestaña debe llamarse exactamente Partners. Si se llama 'Hoja 1' o 'Clientes', renombrala o cambiá el nombre en el código.")
     else:
-        if clean_dataframe_columns is not None:
+        # Limpieza de columnas
+        if clean_dataframe_columns:
             df_partners = clean_dataframe_columns(df_partners)
         
+        # Formateo de texto para evitar errores
         for col in df_partners.columns:
-            if col in ['nombre', 'estado', 'status'] or 'id' in col:
-                df_partners[col] = df_partners[col].astype(str).str.strip()
-        
+            df_partners[col] = df_partners[col].astype(str).str.strip()
+
+        # Aplicar filtros si existe la columna 'nombre'
         if 'nombre' in df_partners.columns:
-            partner_seleccionado = create_partner_filter(df_partners, column_name="nombre")
-            df_filtered = apply_partner_filter(df_partners, partner_seleccionado, df_partners)
+            seleccion = create_partner_filter(df_partners, column_name="nombre")
+            df_display = apply_partner_filter(df_partners, seleccion, df_partners)
         else:
-            df_filtered = df_partners.copy()
-            
-        st.subheader(f"📋 Lista de Clientes ({len(df_filtered)} registros)")
-        st.dataframe(df_filtered, use_container_width=True)
+            df_display = df_partners.copy()
+
+        # Mostrar Tabla
+        st.subheader(f"📋 Lista de registros ({len(df_display)})")
+        st.dataframe(df_display, use_container_width=True)
         
+        # Métrica
         st.markdown("---")
-        st.metric(label="Total Clientes Registrados", value=len(df_partners))
+        st.metric("Total Clientes", len(df_partners))
 
 except Exception as e:
-    st.error(f"❌ Error inesperado en la página: {str(e)}")
+    st.error(f"❌ Error crítico en la página: {e}")
