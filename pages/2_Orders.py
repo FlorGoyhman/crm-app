@@ -5,14 +5,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Importación correcta desde tu carpeta utils
-from utils.filters import (
-    clean_dataframe_columns,
-    create_partner_filter,
-    apply_partner_filter,
-    create_status_filter,
-    apply_status_filter
-)
+# Importación de filtros
+try:
+    from utils.filters import (
+        clean_dataframe_columns,
+        create_partner_filter,
+        apply_partner_filter,
+        create_status_filter,
+        apply_status_filter
+    )
+except ImportError:
+    st.error("❌ No se pudo importar el módulo 'utils.filters'. Revisá que la carpeta exista.")
 
 st.title("📦 Orders")
 
@@ -20,7 +23,10 @@ st.title("📦 Orders")
 @st.cache_data(ttl=300)
 def load_orders():
     try:
-        return query("SELECT * FROM Orders")
+        df = query("SELECT * FROM Orders")
+        if df is None or df.empty:
+            return pd.DataFrame()
+        return df
     except Exception as e:
         logger.error(f"Error cargando Orders: {e}")
         return pd.DataFrame()
@@ -28,7 +34,10 @@ def load_orders():
 @st.cache_data(ttl=300)
 def load_partners():
     try:
-        return query("SELECT * FROM Partners")
+        df = query("SELECT * FROM Partners")
+        if df is None or df.empty:
+            return pd.DataFrame()
+        return df
     except Exception as e:
         logger.error(f"Error cargando Partners: {e}")
         return pd.DataFrame()
@@ -38,38 +47,41 @@ try:
     df_orders = load_orders()
     df_partners = load_partners()
     
-    # Limpiar columnas estructurales
-    df_orders = clean_dataframe_columns(df_orders)
-    df_partners = clean_dataframe_columns(df_partners)
-    
+    # CONTROL CRÍTICO: Si los datos vienen vacíos por falta de conexión, frenamos acá de forma limpia
     if df_orders.empty:
-        st.warning("⚠️ No hay órdenes para mostrar")
+        st.warning("⚠️ No hay órdenes disponibles. Revisá la conexión a la base de datos o las credenciales en los logs.")
     else:
-        # --- PARCHEO DE TIPOS (Evita el error de .str con enteros) ---
-        # Nos aseguramos de que las columnas de texto sean tratadas como string de forma segura
-        for col in df_orders.columns:
-            if col in ['status', 'estado', 'nombre']:  # Columnas de texto conocidas
-                df_orders[col] = df_orders[col].astype(str).str.strip()
-                
-        for col in df_partners.columns:
-            if col in ['status', 'estado', 'nombre']:
-                df_partners[col] = df_partners[col].astype(str).str.strip()
-
+        # Limpiar columnas de forma segura
+        df_orders = clean_dataframe_columns(df_orders)
+        
+        if not df_partners.empty:
+            df_partners = clean_dataframe_columns(df_partners)
+            
+            # Forzar tipo string en columnas de cruce para evitar errores de .str accessor
+            for col in df_orders.columns:
+                if col in ['status', 'estado', 'nombre'] or 'id' in col:
+                    df_orders[col] = df_orders[col].astype(str).str.strip()
+            
+            for col in df_partners.columns:
+                if col in ['status', 'estado', 'nombre'] or 'id' in col:
+                    df_partners[col] = df_partners[col].astype(str).str.strip()
+        
         # --- FILTROS ---
         col1, col2 = st.columns(2)
         
         with col1:
-            # Filtro por cliente
-            partner_seleccionado = create_partner_filter(df_partners, column_name="nombre")
-            df_orders = apply_partner_filter(
-                df_orders, 
-                partner_seleccionado, 
-                df_partners
-            )
+            if not df_partners.empty and 'nombre' in df_partners.columns:
+                partner_seleccionado = create_partner_filter(df_partners, column_name="nombre")
+                df_orders = apply_partner_filter(
+                    df_orders, 
+                    partner_seleccionado, 
+                    df_partners
+                )
+            else:
+                st.caption("Filtro de clientes no disponible (tabla de Partners vacía)")
         
         with col2:
-            # Filtro por estado de la orden
-            if "status" in df_orders.columns:
+            if "status" in df_orders.columns and not df_orders.empty:
                 status_seleccionado = create_status_filter(
                     df_orders,
                     column="status",
@@ -89,15 +101,15 @@ try:
         # --- ESTADÍSTICAS ---
         if "status" in df_orders.columns and not df_orders.empty:
             st.markdown("---")
-            col1, col2 = st.columns(2)
+            c1, c2 = st.columns(2)
             
-            with col1:
+            with c1:
                 status_counts = df_orders["status"].value_counts()
                 st.bar_chart(status_counts)
             
-            with col2:
+            with c2:
                 st.metric("Total Órdenes", len(df_orders))
 
 except Exception as e:
-    st.error(f"❌ Error al cargar órdenes: {str(e)}")
-    logger.error(f"Error en página orders: {e}")
+    st.error(f"❌ Error en la ejecución de la página: {str(e)}")
+    logger.error(f"Error general en página orders: {e}")
