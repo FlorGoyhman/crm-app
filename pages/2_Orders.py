@@ -38,13 +38,23 @@ try:
     df_orders = load_orders()
     df_partners = load_partners()
     
-    # Limpiar columnas
+    # Limpiar columnas estructurales
     df_orders = clean_dataframe_columns(df_orders)
     df_partners = clean_dataframe_columns(df_partners)
     
     if df_orders.empty:
         st.warning("⚠️ No hay órdenes para mostrar")
     else:
+        # --- PARCHEO DE TIPOS (Evita el error de .str con enteros) ---
+        # Nos aseguramos de que las columnas de texto sean tratadas como string de forma segura
+        for col in df_orders.columns:
+            if col in ['status', 'estado', 'nombre']:  # Columnas de texto conocidas
+                df_orders[col] = df_orders[col].astype(str).str.strip()
+                
+        for col in df_partners.columns:
+            if col in ['status', 'estado', 'nombre']:
+                df_partners[col] = df_partners[col].astype(str).str.strip()
+
         # --- FILTROS ---
         col1, col2 = st.columns(2)
         
