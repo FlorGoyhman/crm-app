@@ -26,7 +26,7 @@ st.title("👤 Clientes")
 def load_partners_data():
     try:
         if get_gsheet_data is not None:
-            df = get_gsheet_data("Python", "Partners")
+            df = get_gsheet_data("Python", "Products")
         elif query is not None:
             df = query("SELECT * FROM Partners")
         else:
