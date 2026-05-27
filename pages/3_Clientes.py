@@ -76,10 +76,9 @@ try:
                 # Copiar para comparación
                 df_original = df_partners.copy()
                 
-                # Limpiar espacios
+                # Limpiar espacios (CORREGIDO: Convierte a texto de forma segura primero)
                 for col in df_partners.columns:
-                    if df_partners[col].dtype == "object":
-                        df_partners[col] = df_partners[col].str.strip()
+                    df_partners[col] = df_partners[col].astype(str).str.strip()
                 
                 # Convertir strings vacíos a nulls
                 df_partners = df_partners.replace(
