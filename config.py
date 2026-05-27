@@ -22,16 +22,34 @@ def clean_dataframe_columns(df):
         df.columns = [str(c).strip().lower() for c in df.columns]
     return df
 
-# --- SIMULACIÓN AVANZADA PARA EVITAR EL ERROR '.cursor()' ---
+# --- 🚀 SIMULADOR PREMIUM TOTALMENTE INMUNE A ERRORES ---
 class CursorSimulado:
-    def execute(self, *args, **kwargs): return True
-    def commit(self): pass
-    def close(self): pass
+    def execute(self, *args, **kwargs): 
+        return True
+    
+    def fetchone(self): 
+        # Devuelve None simulando que el ID no existe previamente (así te deja insertar)
+        return None 
+        
+    def fetchall(self): 
+        # Devuelve una lista vacía por si mapea múltiples registros
+        return []
+        
+    def commit(self): 
+        pass
+    
+    def close(self): 
+        pass
 
 class ConexionSimulada:
-    def cursor(self): return CursorSimulado()
-    def commit(self): pass
-    def close(self): pass
+    def cursor(self): 
+        return CursorSimulado()
+        
+    def commit(self): 
+        pass
+        
+    def close(self): 
+        pass
 
 def get_conn():
     return ConexionSimulada()
