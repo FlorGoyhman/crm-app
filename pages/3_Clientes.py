@@ -1,10 +1,16 @@
 import pandas as pd
 import streamlit as st
-# Limpiamos la importación para evitar caracteres ocultos
-from config import get_gsheet_data, clean_dataframe_columns
 import logging
 
 logger = logging.getLogger(__name__)
+
+# --- INTENTAR IMPORTACIÓN DINÁMICA DESDE CONFIG ---
+import config
+
+# Intentamos buscar la función de Google Sheets; si no existe, usamos query como Plan B
+get_gsheet_data = getattr(config, 'get_gsheet_data', None)
+clean_dataframe_columns = getattr(config, 'clean_dataframe_columns', None)
+query = getattr(config, 'query', None)
 
 try:
     from utils.filters import (
@@ -12,30 +18,40 @@ try:
         apply_partner_filter
     )
 except ImportError as e:
-    st.error(f"❌ Error de importación: {e}")
+    st.error(f"❌ Error de importación de filtros: {e}")
 
 st.title("👤 Clientes")
 
-# --- LOAD DATA DESDE GOOGLE SHEETS ---
+# --- LOAD DATA ---
 @st.cache_data(ttl=300)
 def load_partners_data():
     try:
-        # Usando tu archivo "Python" y la pestaña "Partners"
-        df = get_gsheet_data("Python", "Partners") 
+        # Si la función de Google Sheets existe en config.py, la usamos:
+        if get_gsheet_data is not None:
+            df = get_gsheet_data("Python", "Partners")
+        # Si no existe, usamos la función query tradicional:
+        elif query is not None:
+            df = query("SELECT * FROM Partners")
+        else:
+            st.error("❌ No se encontró ninguna función de consulta en config.py")
+            return pd.DataFrame()
+            
         if df is None or df.empty:
             return pd.DataFrame()
         return df
     except Exception as e:
-        logger.error(f"Error cargando Partners desde GSheets: {e}")
+        logger.error(f"Error cargando Partners: {e}")
         return pd.DataFrame()
 
 try:
     df_partners = load_partners_data()
     
     if df_partners.empty:
-        st.warning("⚠️ No se pudieron cargar los datos de los clientes. Comprobá que el nombre de la planilla sea el correcto y que esté compartida con el mail de la cuenta de servicio.")
+        st.warning("⚠️ No se pudieron cargar los datos. Esto puede pasar si la base de datos local no responde o si los nombres en Google Sheets no coinciden.")
     else:
-        df_partners = clean_dataframe_columns(df_partners)
+        # Limpiar columnas de forma segura si la función existe
+        if clean_dataframe_columns is not None:
+            df_partners = clean_dataframe_columns(df_partners)
         
         for col in df_partners.columns:
             if col in ['nombre', 'estado', 'status'] or 'id' in col:
