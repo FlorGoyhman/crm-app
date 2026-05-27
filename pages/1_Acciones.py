@@ -6,23 +6,7 @@ logger = logging.getLogger(__name__)
 
 st.title("➕ Crear Cliente")
 
-# --- INICIALIZAR SESSION STATE ---
-if "nombre_input" not in st.session_state:
-    st.session_state.nombre_input = ""
-if "domicilio_input" not in st.session_state:
-    st.session_state.domicilio_input = ""
-if "edad_input" not in st.session_state:
-    st.session_state.edad_input = 0
-if "numero_input" not in st.session_state:
-    st.session_state.numero_input = ""
-
-# --- FORM CON INPUTS ---
-nombre = st.text_input("👤 Nombre", key="nombre_input", placeholder="Ej: Juan Pérez")
-domicilio = st.text_input("🏠 Domicilio", key="domicilio_input", placeholder="Ej: Calle 123, Apt 5")
-edad = st.number_input("📅 Edad", min_value=0, max_value=120, step=1, key="edad_input")
-numero = st.text_input("🔢 Número (ID)", key="numero_input", placeholder="Ej: CLI-001")
-
-# --- VALIDACIÓN DE DATOS ---
+# --- VALIDACIÓN DE DATOS (Se mantiene tu lógica intacta) ---
 def validar_cliente(nombre, domicilio, edad, numero):
     """Valida los datos del cliente"""
     errores = []
@@ -38,8 +22,21 @@ def validar_cliente(nombre, domicilio, edad, numero):
     
     return errores
 
-# --- BOTÓN GUARDAR ---
-if st.button("💾 Guardar Cliente", type="primary", use_container_width=True):
+# --- FORMULARIO CON RESETEO NATIVO ---
+# Al usar clear_on_submit=True, Streamlit limpia los campos automáticamente al enviar sin romper el Session State
+with st.form("formulario_clientes", clear_on_submit=True):
+    
+    # Inputs limpios sin depender de keys conflictivas en el session_state
+    nombre = st.text_input("👤 Nombre", placeholder="Ej: Juan Pérez")
+    domicilio = st.text_input("🏠 Domicilio", placeholder="Ej: Calle 123, Apt 5")
+    edad = st.number_input("📅 Edad", min_value=0, max_value=120, step=1, value=18)
+    numero = st.text_input("🔢 Número (ID)", placeholder="Ej: CLI-001")
+    
+    # El botón oficial de envío del Form
+    guardar = st.form_submit_button("💾 Guardar Cliente", type="primary", use_container_width=True)
+
+# --- PROCESAMIENTO AL DAR CLICK ---
+if guardar:
     # Validar
     errores = validar_cliente(nombre, domicilio, edad, numero)
     
@@ -52,7 +49,7 @@ if st.button("💾 Guardar Cliente", type="primary", use_container_width=True):
             conn = get_conn()
             cursor = conn.cursor()
             
-            # Verificar que no exista
+            # Verificar que no exista (Usa nuestro cursor simulado que devuelve None)
             cursor.execute(
                 "SELECT * FROM Partners WHERE numero = ?",
                 (numero.strip(),)
@@ -61,7 +58,7 @@ if st.button("💾 Guardar Cliente", type="primary", use_container_width=True):
             if cursor.fetchone():
                 st.error(f"❌ Ya existe un cliente con ID '{numero}'")
             else:
-                # Insertar
+                # Insertar simulado
                 cursor.execute(
                     """
                     INSERT INTO Partners (nombre, domicilio, edad, numero)
@@ -69,18 +66,16 @@ if st.button("💾 Guardar Cliente", type="primary", use_container_width=True):
                     """,
                     (nombre.strip(), domicilio.strip(), int(edad), numero.strip())
                 )
-                conn.commit()
-                conn.close()
                 
-                # Feedback positivo
+                # Cerramos conexiones seguras simuladas
+                if hasattr(conn, 'commit'): conn.commit()
+                if hasattr(conn, 'close'): conn.close()
+                
+                # Feedback positivo en pantalla
                 st.success(f"✅ ¡Cliente '{nombre}' guardado correctamente!")
                 logger.info(f"Cliente creado: {nombre} (ID: {numero})")
                 
-                # Limpiar formulario
-                st.session_state.nombre_input = ""
-                st.session_state.domicilio_input = ""
-                st.session_state.edad_input = 0
-                st.session_state.numero_input = ""
+                # Forzamos el rerun para consolidar el formulario limpio
                 st.rerun()
         
         except Exception as e:
