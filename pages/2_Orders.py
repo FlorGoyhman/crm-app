@@ -4,6 +4,8 @@ from config import query
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Importación correcta desde tu carpeta utils
 from utils.filters import (
     clean_dataframe_columns,
     create_partner_filter,
@@ -47,7 +49,8 @@ try:
         col1, col2 = st.columns(2)
         
         with col1:
-            partner_seleccionado = create_partner_filter(df_partners)
+            # Filtro por cliente
+            partner_seleccionado = create_partner_filter(df_partners, column_name="nombre")
             df_orders = apply_partner_filter(
                 df_orders, 
                 partner_seleccionado, 
@@ -55,6 +58,7 @@ try:
             )
         
         with col2:
+            # Filtro por estado de la orden
             if "status" in df_orders.columns:
                 status_seleccionado = create_status_filter(
                     df_orders,
@@ -70,10 +74,10 @@ try:
         
         # --- MOSTRAR RESULTADOS ---
         st.subheader(f"📋 Órdenes ({len(df_orders)} registros)")
-        st.dataframe(df_orders, width='stretch')
+        st.dataframe(df_orders, use_container_width=True)
         
         # --- ESTADÍSTICAS ---
-        if "status" in df_orders.columns:
+        if "status" in df_orders.columns and not df_orders.empty:
             st.markdown("---")
             col1, col2 = st.columns(2)
             
@@ -86,3 +90,4 @@ try:
 
 except Exception as e:
     st.error(f"❌ Error al cargar órdenes: {str(e)}")
+    logger.error(f"Error en página orders: {e}")
