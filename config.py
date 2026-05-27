@@ -6,10 +6,6 @@ from urllib.parse import quote_plus
 from sqlalchemy import create_engine
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # pyodbc may not be available in some cloud runtimes (Streamlit Cloud).
 # Import lazily and handle absence so the module can be imported even when
 # the DB driver isn't installed. Features that require DB will raise
@@ -20,6 +16,10 @@ try:
 except Exception:
     pyodbc = None
     HAS_PYODBC = False
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Cargar variables de entorno (si está disponible)
 try:
@@ -92,7 +92,7 @@ def get_gsheet_client():
         ]
         # Support credentials provided as JSON in env (GOOGLE_CREDS_JSON)
         if GOOGLE_CREDS_JSON:
-            import json
+            import json, tempfile
             creds_dict = json.loads(GOOGLE_CREDS_JSON)
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
             client = gspread.authorize(creds)
