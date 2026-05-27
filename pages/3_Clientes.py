@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
-# Cambiamos 'query' por las funciones de gsheets
-from config import get_gsheet_data, clean_dataframe_columns 
+# Limpiamos la importación para evitar caracteres ocultos
+from config import get_gsheet_data, clean_dataframe_columns
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,8 +20,8 @@ st.title("👤 Clientes")
 @st.cache_data(ttl=300)
 def load_partners_data():
     try:
-        # Reemplazá "CON_EL_NOMBRE_EXACTO_DE_TU_PLANILLA" por el nombre de tu archivo de Sheets
-        df = get_gsheet_data("CON_EL_NOMBRE_EXACTO_DE_TU_PLANILLA", "Partners") 
+        # Usando tu archivo "Python" y la pestaña "Partners"
+        df = get_gsheet_data("Python", "Partners") 
         if df is None or df.empty:
             return pd.DataFrame()
         return df
